@@ -972,6 +972,7 @@ def eval_joint_force(
     limit_upper: float,
     limit_ke: float,
     limit_kd: float,
+    effort_limit: float,
     mode: wp.int32,
 ) -> float:
     """Joint force evaluation for a single degree of freedom."""
@@ -982,6 +983,9 @@ def eval_joint_force(
 
     if mode == JointMode.TARGET_POSITION:
         target_f = target_ke * (act - q) - target_kd * qd
+        # clamp torque to effort limits for target position mode
+        if effort_limit > 0.0:
+            target_f = wp.clamp(target_f, -effort_limit, effort_limit)
     elif mode == JointMode.TARGET_VELOCITY:
         target_f = target_ke * (act - qd)
 
@@ -1023,6 +1027,7 @@ def eval_body_joints(
     joint_limit_upper: wp.array(dtype=float),
     joint_limit_ke: wp.array(dtype=float),
     joint_limit_kd: wp.array(dtype=float),
+    joint_effort_limit: wp.array(dtype=float),
     joint_attach_ke: float,
     joint_attach_kd: float,
     body_f: wp.array(dtype=wp.spatial_vector),
@@ -1130,6 +1135,7 @@ def eval_body_joints(
                 joint_limit_upper[qd_start],
                 joint_limit_ke[qd_start],
                 joint_limit_kd[qd_start],
+                joint_effort_limit[qd_start],
                 joint_dof_mode[qd_start],
             )
         )
@@ -1168,6 +1174,7 @@ def eval_body_joints(
                 joint_limit_upper[qd_start],
                 joint_limit_ke[qd_start],
                 joint_limit_kd[qd_start],
+                joint_effort_limit[qd_start],
                 joint_dof_mode[qd_start],
             )
         )
@@ -1207,6 +1214,7 @@ def eval_body_joints(
                     joint_limit_upper[qd_start + 0],
                     joint_limit_ke[qd_start + 0],
                     joint_limit_kd[qd_start + 0],
+                    joint_effort_limit[qd_start + 0],
                     joint_dof_mode[qd_start + 0],
                 )
             )
@@ -1231,6 +1239,7 @@ def eval_body_joints(
                     joint_limit_upper[qd_start + 1],
                     joint_limit_ke[qd_start + 1],
                     joint_limit_kd[qd_start + 1],
+                    joint_effort_limit[qd_start + 1],
                     joint_dof_mode[qd_start + 1],
                 )
             )
@@ -1255,6 +1264,7 @@ def eval_body_joints(
                     joint_limit_upper[qd_start + 2],
                     joint_limit_ke[qd_start + 2],
                     joint_limit_kd[qd_start + 2],
+                    joint_effort_limit[qd_start + 2],
                     joint_dof_mode[qd_start + 2],
                 )
             )
@@ -1299,6 +1309,7 @@ def eval_body_joints(
                     joint_limit_upper[i_0],
                     joint_limit_ke[i_0],
                     joint_limit_kd[i_0],
+                    joint_effort_limit[i_0],
                     joint_dof_mode[i_0],
                 )
             )
@@ -1345,6 +1356,7 @@ def eval_body_joints(
                     joint_limit_upper[i_0],
                     joint_limit_ke[i_0],
                     joint_limit_kd[i_0],
+                    joint_effort_limit[i_0],
                     joint_dof_mode[i_0],
                 )
             )
@@ -1360,6 +1372,7 @@ def eval_body_joints(
                     joint_limit_upper[i_1],
                     joint_limit_ke[i_1],
                     joint_limit_kd[i_1],
+                    joint_effort_limit[i_1],
                     joint_dof_mode[i_1],
                 )
             )
@@ -1375,6 +1388,7 @@ def eval_body_joints(
                 0.0,
                 0.0,
                 0.0,
+                0.0,  # effort_limit = 0.0 for fixed axis
                 JointMode.NONE,
             )
 
@@ -1413,6 +1427,7 @@ def eval_body_joints(
                     joint_limit_upper[i_0],
                     joint_limit_ke[i_0],
                     joint_limit_kd[i_0],
+                    joint_effort_limit[i_0],
                     joint_dof_mode[i_0],
                 )
             )
@@ -1428,6 +1443,7 @@ def eval_body_joints(
                     joint_limit_upper[i_1],
                     joint_limit_ke[i_1],
                     joint_limit_kd[i_1],
+                    joint_effort_limit[i_1],
                     joint_dof_mode[i_1],
                 )
             )
@@ -1443,6 +1459,7 @@ def eval_body_joints(
                     joint_limit_upper[i_2],
                     joint_limit_ke[i_2],
                     joint_limit_kd[i_2],
+                    joint_effort_limit[i_2],
                     joint_dof_mode[i_2],
                 )
             )
@@ -1672,6 +1689,7 @@ def eval_body_joint_forces(
                 model.joint_limit_upper,
                 model.joint_limit_ke,
                 model.joint_limit_kd,
+                model.joint_effort_limit if model.joint_effort_limit is not None else wp.zeros(model.joint_dof_count, dtype=float, device=model.device),
                 joint_attach_ke,
                 joint_attach_kd,
             ],

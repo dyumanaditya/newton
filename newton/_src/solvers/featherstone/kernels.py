@@ -344,6 +344,7 @@ def jcalc_tau(
     joint_target_kd: wp.array(dtype=float),
     joint_limit_ke: wp.array(dtype=float),
     joint_limit_kd: wp.array(dtype=float),
+    joint_effort_limit: wp.array(dtype=float),
     joint_S_s: wp.array(dtype=wp.spatial_vector),
     joint_q: wp.array(dtype=float),
     joint_qd: wp.array(dtype=float),
@@ -399,9 +400,10 @@ def jcalc_tau(
             limit_kd = joint_limit_kd[j]
             target_ke = joint_target_ke[j]
             target_kd = joint_target_kd[j]
+            effort_limit = joint_effort_limit[j]
             mode = joint_dof_mode[j]
 
-            drive_f = eval_joint_force(q, qd, act, target_ke, target_kd, lower, upper, limit_ke, limit_kd, mode)
+            drive_f = eval_joint_force(q, qd, act, target_ke, target_kd, lower, upper, limit_ke, limit_kd, effort_limit, mode)
 
             # total torque / force on the joint
             t = -wp.dot(S_s, body_f_s) + drive_f + joint_f[j]
@@ -821,6 +823,7 @@ def eval_rigid_tau(
     joint_limit_upper: wp.array(dtype=float),
     joint_limit_ke: wp.array(dtype=float),
     joint_limit_kd: wp.array(dtype=float),
+    joint_effort_limit: wp.array(dtype=float),
     joint_S_s: wp.array(dtype=wp.spatial_vector),
     body_fb_s: wp.array(dtype=wp.spatial_vector),
     body_f_ext: wp.array(dtype=wp.spatial_vector),
@@ -861,6 +864,7 @@ def eval_rigid_tau(
             joint_target_kd,
             joint_limit_ke,
             joint_limit_kd,
+            joint_effort_limit,
             joint_S_s,
             joint_q,
             joint_qd,
@@ -1347,3 +1351,17 @@ def integrate_generalized_joints(
         joint_q_new,
         joint_qd_new,
     )
+
+
+@wp.kernel
+def clamp_joint_torques(
+    joint_tau: wp.array(dtype=float),
+    joint_effort_limit: wp.array(dtype=float),
+):
+    """Clamp joint torques to their effort limits.
+    
+    Each torque is clamped to the range [-effort_limit, +effort_limit].
+    """
+    tid = wp.tid()
+    limit = joint_effort_limit[tid]
+    joint_tau[tid] = wp.clamp(joint_tau[tid], -limit, limit)

@@ -29,6 +29,7 @@ from ..euler.kernels import (
 from ..euler.particles import eval_particle_forces
 from ..solver import SolverBase
 from .kernels import (
+    clamp_joint_torques,
     compute_com_transforms,
     compute_spatial_inertia,
     create_inertia_matrix_cholesky_kernel,
@@ -444,6 +445,7 @@ class SolverFeatherstone(SolverBase):
                             model.joint_limit_upper,
                             model.joint_limit_ke,
                             model.joint_limit_kd,
+                            model.joint_effort_limit if model.joint_effort_limit is not None else wp.zeros(model.joint_dof_count, dtype=wp.float32, device=model.device),
                             state_aug.joint_S_s,
                             state_aug.body_f_s,
                             body_f,
@@ -454,6 +456,18 @@ class SolverFeatherstone(SolverBase):
                         ],
                         device=model.device,
                     )
+
+                    # clamp torques to effort limits if limits are set
+                    if model.joint_effort_limit is not None:
+                        wp.launch(
+                            clamp_joint_torques,
+                            dim=model.joint_dof_count,
+                            inputs=[
+                                state_aug.joint_tau,
+                                model.joint_effort_limit,
+                            ],
+                            device=model.device,
+                        )
 
                     # print("joint_tau:")
                     # print(state_aug.joint_tau.numpy())
