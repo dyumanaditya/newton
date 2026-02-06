@@ -1359,9 +1359,23 @@ def clamp_joint_torques(
     joint_effort_limit: wp.array(dtype=float),
 ):
     """Clamp joint torques to their effort limits.
-    
+
     Each torque is clamped to the range [-effort_limit, +effort_limit].
     """
     tid = wp.tid()
     limit = joint_effort_limit[tid]
     joint_tau[tid] = wp.clamp(joint_tau[tid], -limit, limit)
+
+
+@wp.kernel
+def clamp_joint_velocities(
+    joint_qd: wp.array(dtype=float),
+    joint_velocity_limit: wp.array(dtype=float),
+):
+    """Clamp joint velocities to their velocity limits.
+
+    Each velocity is clamped to the range [-velocity_limit, +velocity_limit].
+    """
+    tid = wp.tid()
+    limit = joint_velocity_limit[tid]
+    joint_qd[tid] = wp.clamp(joint_qd[tid], -limit, limit)

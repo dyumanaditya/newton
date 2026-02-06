@@ -30,6 +30,7 @@ from ..euler.particles import eval_particle_forces
 from ..solver import SolverBase
 from .kernels import (
     clamp_joint_torques,
+    clamp_joint_velocities,
     compute_com_transforms,
     compute_spatial_inertia,
     create_inertia_matrix_cholesky_kernel,
@@ -457,17 +458,17 @@ class SolverFeatherstone(SolverBase):
                         device=model.device,
                     )
 
-                    # clamp torques to effort limits if limits are set
-                    if model.joint_effort_limit is not None:
-                        wp.launch(
-                            clamp_joint_torques,
-                            dim=model.joint_dof_count,
-                            inputs=[
-                                state_aug.joint_tau,
-                                model.joint_effort_limit,
-                            ],
-                            device=model.device,
-                        )
+                    # # clamp torques to effort limits if limits are set
+                    # if model.joint_effort_limit is not None:
+                    #     wp.launch(
+                    #         clamp_joint_torques,
+                    #         dim=model.joint_dof_count,
+                    #         inputs=[
+                    #             state_aug.joint_tau,
+                    #             model.joint_effort_limit,
+                    #         ],
+                    #         device=model.device,
+                    #     )
 
                     # print("joint_tau:")
                     # print(state_aug.joint_tau.numpy())
@@ -670,6 +671,14 @@ class SolverFeatherstone(SolverBase):
                     outputs=[state_out.joint_q, state_out.joint_qd],
                     device=model.device,
                 )
+
+                if model.joint_velocity_limit is not None:
+                    wp.launch(
+                        clamp_joint_velocities,
+                        dim=model.joint_dof_count,
+                        inputs=[state_out.joint_qd, model.joint_velocity_limit],
+                        device=model.device,
+                    )
 
                 # update maximal coordinates
                 eval_fk(model, state_out.joint_q, state_out.joint_qd, state_out)
