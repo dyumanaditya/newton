@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import warp as wp
 
 from ...core.types import override
@@ -115,6 +116,13 @@ class SolverFeatherstone(SolverBase):
         self.fuse_cholesky = fuse_cholesky
 
         self._step = 0
+
+        # Check if velocity limits are effectively infinite (to avoid unnecessary clamping)
+        self._has_finite_velocity_limits = False
+        if model.joint_velocity_limit is not None:
+            limits = model.joint_velocity_limit.numpy()
+            # Check if any limit is finite (< 1e5)
+            self._has_finite_velocity_limits = np.any(limits < 1e5)
 
         self.compute_articulation_indices(model)
         self.allocate_model_aux_vars(model)
@@ -672,7 +680,9 @@ class SolverFeatherstone(SolverBase):
                     device=model.device,
                 )
 
-                if model.joint_velocity_limit is not None:
+                # Only apply velocity clamping if there are finite limits
+                # This avoids gradient issues when limits are effectively infinite
+                if model.joint_velocity_limit is not None and self._has_finite_velocity_limits:
                     wp.launch(
                         clamp_joint_velocities,
                         dim=model.joint_dof_count,
