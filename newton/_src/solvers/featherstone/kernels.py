@@ -1365,20 +1365,3 @@ def clamp_joint_torques(
     tid = wp.tid()
     limit = joint_effort_limit[tid]
     joint_tau[tid] = wp.clamp(joint_tau[tid], -limit, limit)
-
-
-@wp.kernel
-def clamp_joint_velocities(
-    joint_qd: wp.array(dtype=float),
-    joint_velocity_limit: wp.array(dtype=float),
-):
-    """Clamp joint velocities to their velocity limits.
-
-    Each velocity is clamped to the range [-velocity_limit, +velocity_limit].
-    This kernel is only called when there are finite limits (< 1e5), so we can
-    safely use wp.clamp without gradient issues.
-    """
-    tid = wp.tid()
-    limit = joint_velocity_limit[tid]
-    qd = joint_qd[tid]
-    joint_qd[tid] = wp.clamp(qd, -limit, limit)

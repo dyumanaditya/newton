@@ -680,16 +680,6 @@ class SolverFeatherstone(SolverBase):
                     device=model.device,
                 )
 
-                # Only apply velocity clamping if there are finite limits
-                # This avoids gradient issues when limits are effectively infinite
-                if model.joint_velocity_limit is not None and self._has_finite_velocity_limits:
-                    wp.launch(
-                        clamp_joint_velocities,
-                        dim=model.joint_dof_count,
-                        inputs=[state_out.joint_qd, model.joint_velocity_limit],
-                        device=model.device,
-                    )
-
                 # update maximal coordinates
                 eval_fk(model, state_out.joint_q, state_out.joint_qd, state_out)
 
