@@ -31,7 +31,6 @@ from ..euler.particles import eval_particle_forces
 from ..solver import SolverBase
 from .kernels import (
     clamp_joint_torques,
-    clamp_joint_velocities,
     compute_com_transforms,
     compute_spatial_inertia,
     create_inertia_matrix_cholesky_kernel,
