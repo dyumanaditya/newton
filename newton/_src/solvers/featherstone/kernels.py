@@ -1285,6 +1285,79 @@ def adj_dense_solve(
 
     dense_subs(n, L_start, b_start, L, wp.adjoint[x], tmp)
 
+    # --- DEBUG START (Warp-safe, no tid) ---
+    THRESH   = float(1.0e6)
+    EPS_DIAG = float(1.0e-8)
+
+    # Method 2 clamp threshold (MUST match your outer-product clamp)
+    X_CLAMP = float(80.0)
+
+    max_abs_g = float(0.0)
+    max_abs_y = float(0.0)
+    max_abs_x = float(0.0)
+    max_abs_x_clamp = float(0.0)
+
+    sum_g2 = float(0.0)
+    sum_y2 = float(0.0)
+
+    nan_flag = int(0)
+    clamp_count = int(0)
+
+    for i in range(n):
+        gi = wp.adjoint[x][b_start + i]
+        yi = tmp[b_start + i]
+        xi = x[b_start + i]
+
+        # unclamped stats
+        max_abs_g = wp.max(max_abs_g, wp.abs(gi))
+        max_abs_y = wp.max(max_abs_y, wp.abs(yi))
+        max_abs_x = wp.max(max_abs_x, wp.abs(xi))
+
+        sum_g2 += gi * gi
+        sum_y2 += yi * yi
+
+        # elementwise clamp (Method 2) and clamped stats
+        axi = wp.abs(xi)
+        xci = xi
+        if axi > X_CLAMP:
+            xci = wp.sign(xi) * X_CLAMP
+            clamp_count += int(1)
+
+        max_abs_x_clamp = wp.max(max_abs_x_clamp, wp.abs(xci))
+
+        if wp.isnan(gi) or wp.isnan(yi) or wp.isnan(xi):
+            nan_flag = int(1)
+
+    g_norm = wp.sqrt(sum_g2)
+    y_norm = wp.sqrt(sum_y2)
+
+    min_diag_L = float(1.0e30)
+    for i in range(n):
+        idx = dense_index(n, i, i)  # if not available, use idx = i*n + i
+        min_diag_L = wp.min(min_diag_L, wp.abs(L[idx]))
+
+    outer_max       = max_abs_y * max_abs_x
+    outer_max_clamp = max_abs_y * max_abs_x_clamp
+
+    # fraction of x entries clamped
+    frac_x_clamped = float(clamp_count) / float(n)
+
+    should_print = (nan_flag == 1) or (max_abs_y > THRESH) or (min_diag_L < EPS_DIAG)
+    # should_print = True
+
+    if should_print:
+        wp.printf(
+            "adj_dense_solve: max|g|=%f ||g||=%f max|y|=%f ||y||=%f "
+            "max|x|=%f outer=%f "
+            "max|x_clamp|=%f outer_clamp=%f frac_x_clamped=%f "
+            "min|diag(L)|=%f nan=%d\n",
+            max_abs_g, g_norm, max_abs_y, y_norm,
+            max_abs_x, outer_max,
+            max_abs_x_clamp, outer_max_clamp, frac_x_clamped,
+            min_diag_L, nan_flag
+        )
+    # --- DEBUG END ---
+
     for i in range(n):
         wp.adjoint[b][b_start + i] += tmp[b_start + i]
 
@@ -1296,6 +1369,26 @@ def adj_dense_solve(
     for i in range(n):
         for j in range(n):
             wp.adjoint[A][L_start + dense_index(n, i, j)] += -tmp[b_start + i] * x[b_start + j]
+
+    # # X_CLAMP = float(30.0)  # tune
+
+    # for i in range(n):
+    #     yi = tmp[b_start + i]
+    #     for j in range(n):
+    #         xj = x[b_start + j]
+    #         axj = wp.abs(xj)
+    #         if axj > X_CLAMP:
+    #             xj = wp.sign(xj) * X_CLAMP
+    #         wp.adjoint[L][L_start + dense_index(n, i, j)] += -yi * xj
+
+    # for i in range(n):
+    #     yi = tmp[b_start + i]
+    #     for j in range(n):
+    #         xj = x[b_start + j]
+    #         axj = wp.abs(xj)
+    #         if axj > X_CLAMP:
+    #             xj = wp.sign(xj) * X_CLAMP
+    #     wp.adjoint[A][L_start + dense_index(n, i, j)] += -yi * xj
 
 
 @wp.kernel
