@@ -38,6 +38,7 @@ def joint_force(
     limit_upper: float,
     limit_ke: float,
     limit_kd: float,
+    effort_limit: float,
 ) -> float:
     """Joint force evaluation for a single degree of freedom."""
 
@@ -57,7 +58,7 @@ def joint_force(
         damping_f = -limit_kd * qd
         target_f = 0.0
 
-    return limit_f + damping_f + target_f
+    return limit_f + damping_f + wp.clamp(target_f, -effort_limit, effort_limit)
 
 
 @wp.kernel
@@ -83,6 +84,7 @@ def eval_body_joints(
     joint_limit_upper: wp.array(dtype=float),
     joint_limit_ke: wp.array(dtype=float),
     joint_limit_kd: wp.array(dtype=float),
+    joint_effort_limit: wp.array(dtype=float),
     joint_attach_ke: float,
     joint_attach_kd: float,
     body_f: wp.array(dtype=wp.spatial_vector),
@@ -190,6 +192,7 @@ def eval_body_joints(
                 joint_limit_upper[qd_start],
                 joint_limit_ke[qd_start],
                 joint_limit_kd[qd_start],
+                joint_effort_limit[qd_start],
             )
         )
 
@@ -227,6 +230,7 @@ def eval_body_joints(
                 joint_limit_upper[qd_start],
                 joint_limit_ke[qd_start],
                 joint_limit_kd[qd_start],
+                joint_effort_limit[qd_start],
             )
         )
 
@@ -266,6 +270,7 @@ def eval_body_joints(
                     joint_limit_upper[qd_start + 0],
                     joint_limit_ke[qd_start + 0],
                     joint_limit_kd[qd_start + 0],
+                    joint_effort_limit[qd_start + 0],
                 )
             )
 
@@ -290,6 +295,7 @@ def eval_body_joints(
                     joint_limit_upper[qd_start + 1],
                     joint_limit_ke[qd_start + 1],
                     joint_limit_kd[qd_start + 1],
+                    joint_effort_limit[qd_start + 1],
                 )
             )
 
@@ -314,6 +320,7 @@ def eval_body_joints(
                     joint_limit_upper[qd_start + 2],
                     joint_limit_ke[qd_start + 2],
                     joint_limit_kd[qd_start + 2],
+                    joint_effort_limit[qd_start + 2],
                 )
             )
 
@@ -358,6 +365,7 @@ def eval_body_joints(
                     joint_limit_upper[i_0],
                     joint_limit_ke[i_0],
                     joint_limit_kd[i_0],
+                    joint_effort_limit[i_0],
                 )
             )
 
@@ -404,6 +412,7 @@ def eval_body_joints(
                     joint_limit_upper[i_0],
                     joint_limit_ke[i_0],
                     joint_limit_kd[i_0],
+                    joint_effort_limit[i_0],
                 )
             )
             t_total += axis_1 * (
@@ -419,10 +428,11 @@ def eval_body_joints(
                     joint_limit_upper[i_1],
                     joint_limit_ke[i_1],
                     joint_limit_kd[i_1],
+                    joint_effort_limit[i_1],
                 )
             )
 
-            # last axis (fixed)
+            # last axis (fixed) — internal attachment constraint, not user-controlled
             t_total += axis_2 * -joint_force(
                 angles[2],
                 wp.dot(axis_2, w_err),
@@ -434,6 +444,7 @@ def eval_body_joints(
                 0.0,
                 0.0,
                 0.0,
+                float(1.0e38),
             )
 
         if ang_axis_count == 3:
@@ -472,6 +483,7 @@ def eval_body_joints(
                     joint_limit_upper[i_0],
                     joint_limit_ke[i_0],
                     joint_limit_kd[i_0],
+                    joint_effort_limit[i_0],
                 )
             )
             t_total += axis_1 * (
@@ -487,6 +499,7 @@ def eval_body_joints(
                     joint_limit_upper[i_1],
                     joint_limit_ke[i_1],
                     joint_limit_kd[i_1],
+                    joint_effort_limit[i_1],
                 )
             )
             t_total += axis_2 * (
@@ -502,6 +515,7 @@ def eval_body_joints(
                     joint_limit_upper[i_2],
                     joint_limit_ke[i_2],
                     joint_limit_kd[i_2],
+                    joint_effort_limit[i_2],
                 )
             )
 
@@ -541,6 +555,7 @@ def eval_body_joint_forces(
                 model.joint_limit_upper,
                 model.joint_limit_ke,
                 model.joint_limit_kd,
+                model.joint_effort_limit,
                 joint_attach_ke,
                 joint_attach_kd,
             ],
